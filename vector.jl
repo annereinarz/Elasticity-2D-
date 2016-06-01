@@ -25,7 +25,7 @@ function neumannVector(h,element,mD)
   Bneu = zeros(8)
   for a = 1:4
     for i = 1:dof
-      if abs(element[1,a] - mD.mesh.width) < 1e-06 && i == 1
+      if abs(element[1,a] - mD.mesh.width) < 1e-06 && abs(element[2,a] - mD.mesh.height) < 1e-06
       #if abs(element[2,a] - mD.mesh.height) < 1e-06 && i == 1
         Bneu[dof*(a-1)+i] = h
       end

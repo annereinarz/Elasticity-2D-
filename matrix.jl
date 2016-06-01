@@ -7,7 +7,7 @@ function globalMatrix(mD,intorder)
   for i = 1:size(mD.mesh.elems)[2]
     element = mD.mesh.coords[:,mD.mesh.elems[:,i]]
     elemdof = size(mD.LM)[1]
-    KPQ = localMatrix(element,mD.mesh.height,intorder)
+    KPQ = localHourglass(element,mD.mesh.height,intorder)
     #equation numbers, write appropriate matrix entries
     ih = [1:elemdof]
     local_ind = ih[mD.LM[:,i] .!= 0]
@@ -19,6 +19,41 @@ end
 
 
 using quadrature
+function localHourglass(element,height,intorder)
+  a = 1./5
+  Kelem = zeros(8,8)
+  Kelem1 = zeros(8,8)
+  Kelem2 = zeros(8,8)
+  A = hcat(element[:,2]-element[:,1], element[:,3]-element[:,1])
+  elem_center = element[:,1] + A*[0.5, 0.5]
+  elem_det = abs(det(A))
+
+  for a = 1:4   #run over all local nodes
+    for i = 1:dof
+      for b = 1:4
+        for j = 1:dof
+          integral = quadrature.integrate(x->f(a,b,i,j,x,elem_center,height),intorder)
+          Kelem1[dof*(a-1)+i, dof*(b-1)+j] = integral[1]*elem_det
+
+          integral = quadrature.integrate(x->f(a,b,i,j,x,elem_center,height),intorder+1)
+          Kelem2[dof*(a-1)+i, dof*(b-1)+j] = integral[1]*elem_det
+        end
+      end
+    end
+  end
+  
+  lambda2,v2 = eig(Kelem2); lambda2 = real(lambda2); v2 = real(v2)
+  lambda1 = diag(v2'*Kelem1*v2)
+  #l = setdiff(round(lambda2,8),round(lambda1,8))
+  for i = 1:8
+    if i==6 || i==5  #spurious modes
+      lambda1[i] = lambda2[i]*a
+    end
+    Kelem += v2[:,i]*lambda1[i]*v2[:,i]'
+  end
+  return Kelem
+end
+
 function localMatrix(element,height,intorder)
   Kelem = zeros(8,8)
   A = hcat(element[:,2]-element[:,1], element[:,3]-element[:,1])
